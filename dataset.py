@@ -29,12 +29,6 @@ class DatasetSerial(data.Dataset):
         input_img = cv2.cvtColor(input_img, cv2.COLOR_BGR2RGB)
         img_label = pair[1] # normal is 0
 
-        aux_path = pair[0]
-        aux_path = aux_path.replace('Otsu', 'NUC')
-        aux_path = aux_path.replace('png', 'npy')
-        aux_img = np.load(aux_path)
-        aux_img = np.expand_dims(aux_img, axis=-1)
-
         # shape must be deterministic so it can be reused
         shape_augs = self.shape_augs.to_deterministic()
         input_img = shape_augs.augment_image(input_img)
@@ -43,31 +37,7 @@ class DatasetSerial(data.Dataset):
         if self.input_augs is not None:
             input_img = self.input_augs.augment_image(input_img)
 
-        # additional augment for auxiliary input
-        if self.has_aux: # NOTE: aleju Scale only supports uint8
-            aux_foc = np.zeros(aux_img.shape[:2] + (1,), dtype=np.uint8)
-            aux_img = np.concatenate([aux_img, aux_foc], axis=-1)
-            aux_img = shape_augs.augment_image(aux_img)
-            aux_foc = np.squeeze(aux_img[...,-1:])
-            aux_img = aux_img[...,:-1]
-            aux_img[aux_foc > 0] = 0 # clean off boundary artifact 
-
-            aux_img = cv2.resize(aux_img, (0,0), fx=1/8 , fy=1/8, interpolation=cv2.INTER_NEAREST)
-            aux_img = np.array(aux_img > 0.5, dtype=np.uint8)# binarize
-
-            # print(aux_img.shape)
-            # plt.subplot(1,3,1)
-            # plt.imshow(input_img)
-            # plt.subplot(1,3,2)
-            # plt.imshow(aux_img[...,0])
-            # # plt.subplot(1,3,3)
-            # # plt.imshow(aux_img[...,1])
-            # plt.show()
-            # exit()
-
-            return input_img, img_label, aux_img
-        else:
-            return input_img, img_label
+        return input_img, img_label
         
     def __len__(self):
         return len(self.pair_list)
@@ -124,6 +94,36 @@ def prepare_colon_data(fold_idx=0):
     for tma_code in tma_list:
         tma_file_list = glob.glob('../../../train/COLON_MICCAI2019/2048x2048_tma_1_rgb/%s/*.jpg' % tma_code)
         tma_label_list = [int(file_path.split('_')[-1].split('.')[0]) for file_path in tma_file_list]
+        file_list.extend(tma_file_list)
+        label_list.extend(tma_label_list)
+    pairs_list = list(zip(file_list, label_list))
+    # [(0, 139), (1, 235), (2, 645), (3, 194)] highly imbalance
+
+    train_fold = []
+    valid_fold = []
+    skf = StratifiedKFold(n_splits=5, random_state=5, shuffle=False)
+    for train_index, valid_index in skf.split(file_list, label_list):
+        train_fold.append([pairs_list[idx] for idx in list(train_index)])
+        valid_fold.append([pairs_list[idx] for idx in list(valid_index)])
+
+    return train_fold[fold_idx], valid_fold[fold_idx]
+
+####
+def prepare_prostate_asan_data(fold_idx=0):
+    assert fold_idx < 5, "Currently only support 5 fold, each fold is 1 TMA"
+
+    tma_list = ['11S-1_1(x400)', '11S-1_2(x400)', '11S-1_3(x400)']
+    class_dict = {
+        'benign' : 0, '3': 1, '4' : 2, '5' : 3
+    }
+
+    file_list = []
+    label_list = []
+    for tma_code in tma_list:
+        # tma_file_list = glob.glob('../../train/PROSTATE_ASAN/1024x1024_512x512/%s/*.jpg' % tma_code)
+        tma_file_list = glob.glob('/mnt/dang/train/PROSTATE_ASAN/1024x1024_512x512/%s/*.jpg' % tma_code)
+        tma_label_list = [file_path.split('_')[-1].split('.')[0] for file_path in tma_file_list]
+        tma_label_list = [class_dict[label] for label in tma_label_list]
         file_list.extend(tma_file_list)
         label_list.extend(tma_label_list)
     pairs_list = list(zip(file_list, label_list))

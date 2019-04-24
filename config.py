@@ -11,7 +11,7 @@ class Config(object):
         self.train_batch_size = 8
         self.infer_batch_size = 8
         self.nr_epochs  = 60
-        self.nr_classes = 3
+        self.nr_classes = 4
         
         # nr of processes for parallel processing input
         self.nr_procs_train = 4 
@@ -21,21 +21,18 @@ class Config(object):
         self.fold_idx = 4
         self.cross_valid = True
 
-        self.attent = True
-        self.guide_mode = 'else'
-        self.nuc_alpha = 1.0
-        self.nuc_beta  = 1.0
-        self.attent_period = 2 # 1 is always attent
-
         self.load_network  = False
         self.save_net_path = ""
 
-        self.data_size  = [2560, 2560]
-        self.input_size = [1280, 1280]
+        self.data_size  = [1024, 1024]
+        self.input_size = [512, 512]
 
+        #
+        self.dataset = 'prostate_asan'
         # v1.0.3.0 test classifying cancer only
         self.logging = True # for debug run only
-        self.log_path = '/media/vqdang/Data_2/dang/output/NUCLEI-ENHANCE/smhtmas/'
+        # self.log_path = '/media/vqdang/Data_2/dang/output/NUCLEI-ENHANCE/smhtmas/'
+        self.log_path = '/mnt/dang/output/NUCLEI-ENHANCE/%s/' % self.dataset
         self.chkpts_prefix = 'model'
         self.model_name = 'v1.0.0.0'
         self.log_dir =  self.log_path + self.model_name
