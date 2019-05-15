@@ -119,7 +119,7 @@ class DenseBlock(Net, Config):
         self.blk_final = nn.Sequential(
             nn.GroupNorm(unit_input_ch // 4, unit_input_ch, eps=1e-5), 
             nn.ReLU(inplace=True),
-            nn.Conv2d(unit_input_ch, out_ch, 1, stride=1, padding=1)
+            nn.Conv2d(unit_input_ch, out_ch, 1, stride=1, padding=0)
         )
 
     def forward(self, prev_feat, attent=None):
@@ -136,18 +136,22 @@ class DenseNet(Net, Config):
 
         self.feat_mode = feat_mode
 
-        self.d0 = nn.Conv2d(input_ch, 64, 7, stride=2, padding=3)
+        self.d0 = nn.Sequential(
+            nn.Conv2d(input_ch, 64, 7, stride=2, padding=3),
+            nn.GroupNorm(64 // 4, 64, eps=1e-5), 
+            nn.ReLU(inplace=True), 
+        ) # similar to in pytorch model zoo
 
         self.d1_pool  = nn.MaxPool2d((3, 3), stride=2, padding=1)
         self.d1_dense = DenseBlock( 64,  64, [1, 3], [32, 8], 6)
 
-        self.d2_pool  = nn.AvgPool2d((2, 2), stride=2, padding=-1)
+        self.d2_pool  = nn.AvgPool2d((2, 2), stride=2, padding=0)
         self.d2_dense = DenseBlock( 64,  80, [1, 3], [32, 8], 12)
 
-        self.d3_pool  = nn.AvgPool2d((2, 2), stride=2, padding=-1)
+        self.d3_pool  = nn.AvgPool2d((2, 2), stride=2, padding=0)
         self.d3_dense = DenseBlock( 80, 168, [1, 3], [32, 8], 32)
 
-        self.d4_pool  = nn.AvgPool2d((2, 2), stride=2, padding=-1)
+        self.d4_pool  = nn.AvgPool2d((2, 2), stride=2, padding=0)
         self.d4_dense = DenseBlock(168, 212, [1, 3], [32, 8], 32)
 
         self.preact_out = nn.Sequential(
