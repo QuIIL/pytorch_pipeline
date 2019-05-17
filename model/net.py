@@ -91,12 +91,10 @@ class DenseUnit(Net, Config):
             nn.ReLU(inplace=True),
             nn.Conv2d(ch[0], ch[1], ksize[1], stride=1, padding=pad[1], bias=False)
         )
-        self.squeeze_excite = SquuezeExciteUnit(ch[1], ch[1] // 2)
 
     def forward(self, prev_feat, attent=None):
         feat = self.save_mem(prev_feat, self.conv1)
         feat = self.conv2(feat)
-        feat = self.squeeze_excite(feat)
         feat = feat * attent if attent is not None else feat
         feat = torch.cat([prev_feat, feat], dim=1)        
         return feat
@@ -130,56 +128,62 @@ class DenseBlock(Net, Config):
         return feat
 
 class DenseNet(Net, Config):
-    def __init__(self, input_ch, nr_classes, feat_mode=False):
+    def __init__(self, input_ch, nr_classes, seg_mode=False):
         super(DenseNet, self).__init__()
         Config.__init__(self) # TODO: why need this redundancy here?
 
-        self.feat_mode = feat_mode
+        self.nr_classes = nr_classes
+        self.seg_mode = seg_mode
 
-        self.d0 = nn.Conv2d(3, 64, 7, stride=2, padding=3)
+        self.d0 = nn.Sequential(
+            nn.Conv2d(input_ch, 64, 7, stride=2, padding=3),
+            nn.GroupNorm(64 // 4, 64, eps=1e-5), 
+            nn.ReLU(inplace=True), 
+        ) # similar to in pytorch model zoo
 
         self.d1_pool  = nn.MaxPool2d((3, 3), stride=2, padding=1)
-        self.d1_dense = DenseBlock( 64,  64, [1, 3], [32, 8], 6)
+        self.d1_dense = DenseBlock( 64,  80, [1, 3], [64, 16], 6)
 
         self.d2_pool  = nn.AvgPool2d((2, 2), stride=2, padding=0)
-        self.d2_dense = DenseBlock( 64,  80, [1, 3], [32, 8], 12)
+        self.d2_dense = DenseBlock( 80, 136, [1, 3], [64, 16], 12)
 
         self.d3_pool  = nn.AvgPool2d((2, 2), stride=2, padding=0)
-        self.d3_dense = DenseBlock( 80, 168, [1, 3], [32, 8], 32)
+        self.d3_dense = DenseBlock(136, 260, [1, 3], [64, 16], 24)
 
         self.d4_pool  = nn.AvgPool2d((2, 2), stride=2, padding=0)
-        self.d4_dense = DenseBlock(168, 212, [1, 3], [32, 8], 32)
+        self.d4_dense = DenseBlock(260, 260, [1, 3], [64, 16], 16)
 
         self.preact_out = nn.Sequential(
-            nn.GroupNorm(212 // 4, 212, eps=1e-5), 
+            nn.GroupNorm(260 // 4, 260, eps=1e-5), 
             nn.ReLU(inplace=True), 
         )
-        self.classifier = nn.Sequential(
-            nn.Linear(212, nr_classes)
-        )
+        self.classifier = nn.Conv2d(260, nr_classes, 1, stride=1, padding=0, bias=True)
+
+        # self.avg_pool = nn.AvgPool2d(33, stride=1, padding=16)
+        self.avg_pool = nn.AvgPool2d(15, stride=1, padding=7)
 
         self.d2_seg = nn.Sequential(
-            nn.GroupNorm(80 // 4, 80, eps=1e-5),    
+            nn.GroupNorm(136 // 4, 136, eps=1e-5),    
             nn.ReLU(inplace=True),
-            nn.Conv2d(80, 256, 7, stride=1, padding=3, bias=False),
+            nn.Conv2d(136, 256, 7, stride=1, padding=3, bias=False),
             nn.GroupNorm(256 // 4, 256, eps=1e-5),    
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 256, 7, stride=1, padding=3, bias=False)
         )
 
         self.d3_seg = nn.Sequential(
-            nn.GroupNorm(168 // 4, 168, eps=1e-5),    
+            nn.GroupNorm(260 // 4, 260, eps=1e-5),    
             nn.ReLU(inplace=True),
-            nn.Conv2d(168, 256, 7, stride=1, padding=3, bias=False),
+            nn.Conv2d(260, 256, 7, stride=1, padding=3, bias=False),
             nn.GroupNorm(256 // 4, 256, eps=1e-5),    
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 256, 7, stride=1, padding=3, bias=False)
         )
 
         self.d4_seg = nn.Sequential(
-            nn.GroupNorm(212 // 4, 212, eps=1e-5),    
+            nn.GroupNorm(260 // 4, 260, eps=1e-5),    
             nn.ReLU(inplace=True),
-            nn.Conv2d(212, 256, 7, stride=1, padding=3, bias=False),
+            nn.Conv2d(260, 256, 7, stride=1, padding=3, bias=False),
             nn.GroupNorm(256, 256, eps=1e-5),    
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 256, 7, stride=1, padding=3, bias=False)
@@ -188,7 +192,7 @@ class DenseNet(Net, Config):
         self.conv_out = nn.Sequential(
             nn.GroupNorm(256 // 4, 256, eps=1e-5),    
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 2, 1, stride=1, padding=0, bias=True)            
+            nn.Conv2d(256, nr_classes, 1, stride=1, padding=0, bias=True)            
         )
         self.weights_init()
 
@@ -200,14 +204,6 @@ class DenseNet(Net, Config):
             return F.adaptive_avg_pool2d(l, (1, 1)).view(l.size(0), -1)
 
         attent = [None] * 4
-        # nucs = imgs[:,3:,:] # split channel
-        # imgs = imgs[:,:3,:] # split channel 
-
-        # nucs /= 255.0 # 2048x2048
-        # attent[0] = F.interpolate(nucs, scale_factor=float(1/4) , mode='bilinear', align_corners=True)
-        # attent[1] = F.interpolate(nucs, scale_factor=float(1/8) , mode='bilinear', align_corners=True)
-        # attent[2] = F.interpolate(nucs, scale_factor=float(1/16), mode='bilinear', align_corners=True)
-        # attent[3] = F.interpolate(nucs, scale_factor=float(1/32), mode='bilinear', align_corners=True)
         
         d0 = self.d0(imgs)
         d1 = self.d1_pool(d0)
@@ -223,13 +219,16 @@ class DenseNet(Net, Config):
         d4 = self.d4_dense(d4, attent[3])
         
         d2_seg = self.d2_seg(d2)
-        d3_seg = self.d3_seg(scale_to(d3, (160, 160)))
-        d4_seg = self.d4_seg(scale_to(d4, (160, 160)))
+        # d3_seg = self.d3_seg(scale_to(d3, (128, 128)))
+        # d4_seg = self.d4_seg(scale_to(d4, (128, 128)))
+        d3_seg = self.d3_seg(scale_to(d3, (640, 640)))
+        d4_seg = self.d4_seg(scale_to(d4, (640, 640)))
         out_seg = self.conv_out(d2_seg + d3_seg + d4_seg)
 
         out = self.preact_out(d4)
-        # global average pooling operation
         out = GlobalAvgPooling(out)
+        out = out.view(-1, 260, 1, 1)
         out = self.classifier(out)
+        out = out.view(-1, self.nr_classes)
 
         return out, out_seg

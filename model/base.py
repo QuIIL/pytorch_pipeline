@@ -44,29 +44,6 @@ class Net(nn.Module):
     def forward(self, x):
         return x
 
-class SquuezeExciteUnit(Net, Config):   
-    def __init__(self, in_ch, se_ch):
-        super(SquuezeExciteUnit, self).__init__()
-        Config.__init__(self) # TODO: why need this redundancy here?
-
-        self.unit = nn.Sequential(
-            nn.Linear(in_ch, se_ch),
-            nn.ReLU(inplace=True),
-            nn.Linear(se_ch, in_ch),
-            nn.Sigmoid(),
-        )
-
-    def forward(self, prev_feat):
-        def GlobalAvgPooling(l):
-            return F.adaptive_avg_pool2d(l, (1, 1)).view(l.size(0), -1)
-
-        feat = GlobalAvgPooling(prev_feat)
-        feat = self.unit(feat) 
-        # NOTE: hard coded the number of channels
-        feat = feat.view(-1, 8, 1, 1)
-        feat = prev_feat * feat
-        return feat
-
 class DenseUnit(Net, Config):   
     def __init__(self, in_ch, ksize, ch, padding='same', efficient=True):
         super(DenseUnit, self).__init__()
@@ -91,12 +68,10 @@ class DenseUnit(Net, Config):
             nn.ReLU(inplace=True),
             nn.Conv2d(ch[0], ch[1], ksize[1], stride=1, padding=pad[1], bias=False)
         )
-        self.squeeze_excite = SquuezeExciteUnit(ch[1], ch[1] // 2)
 
     def forward(self, prev_feat, attent=None):
         feat = self.save_mem(prev_feat, self.conv1)
         feat = self.conv2(feat)
-        feat = self.squeeze_excite(feat)
         feat = feat * attent if attent is not None else feat
         feat = torch.cat([prev_feat, feat], dim=1)        
         return feat
@@ -130,11 +105,12 @@ class DenseBlock(Net, Config):
         return feat
 
 class DenseNet(Net, Config):
-    def __init__(self, input_ch, nr_classes, feat_mode=False):
+    def __init__(self, input_ch, nr_classes, seg_mode=False):
         super(DenseNet, self).__init__()
         Config.__init__(self) # TODO: why need this redundancy here?
 
-        self.feat_mode = feat_mode
+        self.nr_classes = nr_classes
+        self.seg_mode = seg_mode
 
         self.d0 = nn.Sequential(
             nn.Conv2d(input_ch, 64, 7, stride=2, padding=3),
@@ -143,24 +119,27 @@ class DenseNet(Net, Config):
         ) # similar to in pytorch model zoo
 
         self.d1_pool  = nn.MaxPool2d((3, 3), stride=2, padding=1)
-        self.d1_dense = DenseBlock( 64,  64, [1, 3], [32, 8], 6)
+        self.d1_dense = DenseBlock( 64,  80, [1, 3], [64, 16], 6)
 
         self.d2_pool  = nn.AvgPool2d((2, 2), stride=2, padding=0)
-        self.d2_dense = DenseBlock( 64,  80, [1, 3], [32, 8], 12)
+        self.d2_dense = DenseBlock( 80, 136, [1, 3], [64, 16], 12)
 
         self.d3_pool  = nn.AvgPool2d((2, 2), stride=2, padding=0)
-        self.d3_dense = DenseBlock( 80, 168, [1, 3], [32, 8], 32)
+        self.d3_dense = DenseBlock(136, 260, [1, 3], [64, 16], 24)
 
         self.d4_pool  = nn.AvgPool2d((2, 2), stride=2, padding=0)
-        self.d4_dense = DenseBlock(168, 212, [1, 3], [32, 8], 32)
+        self.d4_dense = DenseBlock(260, 260, [1, 3], [64, 16], 16)
 
         self.preact_out = nn.Sequential(
-            nn.GroupNorm(212 // 4, 212, eps=1e-5), 
+            nn.GroupNorm(260 // 4, 260, eps=1e-5), 
             nn.ReLU(inplace=True), 
         )
-        self.classifier = nn.Sequential(
-            nn.Linear(212, nr_classes)
-        )
+
+        self.classifier = nn.Conv2d(260, nr_classes, 1, stride=1, padding=0, bias=True)
+
+        # self.avg_pool = nn.AvgPool2d(33, stride=1, padding=16)
+        self.avg_pool = nn.AvgPool2d(15, stride=1, padding=7)
+        # self.avg_pool = nn.AvgPool2d(13, stride=1, padding=6)
 
         self.weights_init()
 
@@ -193,6 +172,13 @@ class DenseNet(Net, Config):
         
         out = self.preact_out(d4)
         # global average pooling operation
-        out = GlobalAvgPooling(out)
-        out = self.classifier(out)
+        if not self.seg_mode:
+            out = GlobalAvgPooling(out)
+            out = out.view(-1, 260, 1, 1)
+            out = self.classifier(out)
+            out = out.view(-1, self.nr_classes)
+        else:
+            out = self.avg_pool(out)
+            out = self.classifier(out)
+
         return out

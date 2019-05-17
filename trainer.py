@@ -66,21 +66,38 @@ class Trainer(Config):
         # -----------------------------------------------------------
         net.zero_grad() # not rnn so not accumulate
 
-        logit = net(imgs) # forward
+        logit, aux_logit = net(imgs) # forward
         prob = F.softmax(logit, dim=-1)
 
         # has built-int log softmax so accept logit
         loss = F.cross_entropy(logit, true, reduction='mean')
         pred = torch.argmax(prob, dim=-1)
         acc  = torch.mean((pred == true).float()) # batch accuracy
-       
+
+        #
+        aux_true = true.view(-1, 1, 1)
+        aux_true = aux_true * torch.ones((128, 128), dtype=torch.int64, 
+                                        device='cuda', requires_grad=False)
+        aux_prob = F.softmax(aux_logit, dim=1)
+        aux_prob = aux_prob.permute(0, 2, 3, 1)
+        aux_loss = F.cross_entropy(aux_logit, aux_true, reduction='mean')
+        
+        class_loss = loss
+        loss = loss + aux_loss
         # gradient update
         loss.backward()
         optimizer.step()
 
         # -----------------------------------------------------------
-        return dict(acc=acc.item(),
-                    loss=loss.item(), 
+        return dict(
+                    loss=loss.item(),
+                    class_loss=class_loss.item(),
+                    class_acc=acc.item(),
+                    seg_loss=aux_loss.item(), 
+                    seg_imgs=[
+                        imgs_cpu.numpy(), 
+                        aux_true.cpu().numpy(), 
+                        aux_prob.detach().cpu().numpy()]
                     )
     ####
     def infer_step(self, net, batch, device):
@@ -95,15 +112,19 @@ class Trainer(Config):
 
         # -----------------------------------------------------------
         with torch.no_grad(): # dont compute gradient
-            logit = net(imgs)
+            logit, aux_logit = net(imgs)
             prob = nn.functional.softmax(logit, dim=-1)
             return dict(prob=prob.cpu().numpy(), 
                         true=true.cpu().numpy())
     ####
     def run_once(self, fold_idx):
         
-        log_dir = '%s/%02d/' % (self.log_dir, fold_idx)
+        # log_dir = '%s/%02d/' % (self.log_dir, fold_idx)
 
+        # check_manual_seed(self.seed)
+        # train_pairs, valid_pairs = getattr(dataset, ('prepare_%s_data' % self.dataset))(fold_idx)
+
+        log_dir = self.log_dir
         check_manual_seed(self.seed)
         train_pairs, valid_pairs = getattr(dataset, ('prepare_%s_data' % self.dataset))(fold_idx)
 
@@ -137,7 +158,7 @@ class Trainer(Config):
 
         # networks
         input_chs = 3 # TODO: dynamic config
-        net_def = importlib.import_module('model.base') # dynamic import
+        net_def = importlib.import_module('model.net') # dynamic import
         net = net_def.DenseNet(input_chs, self.nr_classes)
 
         # load pre-trained models
@@ -155,7 +176,6 @@ class Trainer(Config):
         trainer = Engine(lambda engine, batch: self.train_step(net, batch, optimizer, device))
         valider = Engine(lambda engine, batch: self.infer_step(net, batch, device))
 
-        train_output = ['class_loss', 'class_acc', 'seg_loss']
         infer_output = ['prob', 'true']
         ##
 
@@ -174,8 +194,11 @@ class Trainer(Config):
 
         # attach running average metrics computation
         # decay of EMA to 0.95 to match tensorpack default
+        # TODO: refactor this
+        RunningAverage(alpha=0.95, output_transform=lambda x: x['class_loss']).attach(trainer, 'class_loss')
+        RunningAverage(alpha=0.95, output_transform=lambda x: x['class_acc']).attach(trainer , 'class_acc')
+        RunningAverage(alpha=0.95, output_transform=lambda x: x['seg_loss']).attach(trainer, 'seg_loss')
         RunningAverage(alpha=0.95, output_transform=lambda x: x['loss']).attach(trainer, 'loss')
-        RunningAverage(alpha=0.95, output_transform=lambda x: x['acc']).attach(trainer, 'acc')
 
         # attach progress bar
         pbar = ProgressBar(persist=True)

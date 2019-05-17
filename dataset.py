@@ -1,13 +1,16 @@
-import glob
 import csv
+import glob
+import random
+from collections import Counter
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.utils.data as data
-
+from sklearn.model_selection import StratifiedKFold
 from torchvision import transforms
 from torchvision.utils import make_grid
+
 
 ####
 class DatasetSerial(data.Dataset):
@@ -81,9 +84,6 @@ def prepare_smhtma_data(fold_idx=0):
     return train_pairs, valid_pairs
 
 ####
-from collections import Counter
-from sklearn.model_selection import StratifiedKFold
-
 def prepare_colon_data(fold_idx=0):
     assert fold_idx < 5, "Currently only support 5 fold, each fold is 1 TMA"
 
@@ -107,6 +107,31 @@ def prepare_colon_data(fold_idx=0):
         valid_fold.append([pairs_list[idx] for idx in list(valid_index)])
 
     return train_fold[fold_idx], valid_fold[fold_idx]
+####
+def prepare_colon_manual_data(fold_idx=0):
+    def load_data_info(pathname, parse_label=True, label_value=0):
+        file_list = glob.glob(pathname)
+        if parse_label:
+            label_list = [int(file_path.split('_')[-1].split('.')[0]) for file_path in file_list]
+        else:
+            label_list = [label_value for file_path in file_list]
+        print(Counter(label_list))
+        return list(zip(file_list, label_list))
+
+    assert fold_idx < 5, "Currently only support 5 fold, each fold is 1 TMA"
+
+    data_root_dir = '../../train/COLON_MANUAL_PATCHES/'
+    tma_list = ['1010711', '1010712', '1010716']
+
+    set_1010711 = load_data_info('%s/v1/1010711/*.jpg' % data_root_dir)
+    set_1010712 = load_data_info('%s/v1/1010712/*.jpg' % data_root_dir)
+    set_1010716 = load_data_info('%s/v1/1010716/*.jpg' % data_root_dir)
+    wsi = load_data_info('%s/wsi/*.jpg' % data_root_dir, parse_label=False, label_value=0) # benign exclusively
+    random.shuffle(wsi)
+
+    train_set = set_1010711 + set_1010712 + wsi[:225]
+    valid_set = set_1010716 + wsi[225:]
+    return train_set, valid_set
 
 ####
 def prepare_prostate_asan_data(fold_idx=0):
