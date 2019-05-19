@@ -11,7 +11,7 @@ class Config(object):
         self.train_batch_size = 8
         self.infer_batch_size = 8
         self.nr_epochs  = 60
-        self.nr_classes = 4
+        self.nr_classes = 3
         
         # nr of processes for parallel processing input
         self.nr_procs_train = 4 
@@ -28,7 +28,7 @@ class Config(object):
         self.input_size = [512, 512]
 
         #
-        self.dataset = 'colon_manual'
+        self.dataset = 'prostate_manual'
         # v1.0.3.0 test classifying cancer only
         self.logging = True # for debug run only
         self.log_path = '/media/vqdang/Data_2/dang/output/NUCLEI-ENHANCE/%s/' % self.dataset

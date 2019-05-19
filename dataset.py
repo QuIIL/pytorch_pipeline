@@ -132,6 +132,30 @@ def prepare_colon_manual_data(fold_idx=0):
     train_set = set_1010711 + set_1010712 + wsi[:225]
     valid_set = set_1010716 + wsi[225:]
     return train_set, valid_set
+####
+def prepare_prostate_manual_data(fold_idx=0):
+    def load_data_info(pathname, parse_label=True, label_value=0):
+        file_list = glob.glob(pathname)
+        if parse_label:
+            label_list = [int(file_path.split('_')[-1].split('.')[0]) for file_path in file_list]
+            label_list = [2 if label == 3 else label for label in label_list]
+        else:
+            label_list = [label_value for file_path in file_list]
+        print(Counter(label_list))
+        return list(zip(file_list, label_list))
+
+    assert fold_idx < 5, "Currently only support 5 fold, each fold is 1 TMA"
+
+    data_root_dir = '../../train/PROSTATE_MANUAL_PATCHES/'
+    tma_list = ['1010711', '1010712', '1010716']
+
+    set_1 = load_data_info('%s/v1/11S-1_1(x400)/*.jpg' % data_root_dir)
+    set_3 = load_data_info('%s/v1/11S-1_3(x400)/*.jpg' % data_root_dir)
+
+    train_set = set_3
+    valid_set = set_1
+    return train_set, valid_set
+
 
 ####
 def prepare_prostate_asan_data(fold_idx=0):
