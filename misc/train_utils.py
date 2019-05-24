@@ -173,24 +173,25 @@ def log_train_ema_results(engine, info):
 
     imgs, true, segs = engine.state.output['seg_imgs'] # NCHW
     # print(imgs.shape, true.shape, segs.shape)
-    imgs = np.transpose(imgs, [0, 2, 3, 1]).astype('float32') / 255.0
-    true = true.astype('float32') / 4
-    segs = np.transpose(segs, (0, 1, 3, 2))
-    segs = np.reshape(segs, (segs.shape[0], 128, 128 * 4))
+    # imgs = np.transpose(imgs, [0, 2, 3, 1]).astype('float32') / 255.0
+    # nr_classes = np.max(true) + 1
+    # true = true.astype('float32') / nr_classes
+    # segs = np.transpose(segs, (0, 1, 3, 2))
+    # segs = np.reshape(segs, (segs.shape[0], 128, 128 * nr_classes))
 
-    cmap_jet = plt.get_cmap('jet')
-    imgs = np.concatenate([imgs[0], imgs[1]], axis=0)
-    true = cmap_jet(np.concatenate([true[0], true[1]], axis=0))[...,:3]
-    segs = cmap_jet(np.concatenate([segs[0], segs[1]], axis=0))[...,:3]
-    imgs = cv2.resize(imgs, (0, 0),  fx=1/8 , fy=1/8 , interpolation=cv2.INTER_LINEAR)
-    tracked_images = np.concatenate([imgs, true, segs], axis=1)
-    # plt.imshow(tracked_images)
-    # plt.show()
-    # exit()
-    tracked_images = np.expand_dims(tracked_images, axis=0) # fake NCHW
-    tracked_images = np.transpose(tracked_images, [0, 3, 1, 2])
-    tracked_images = (tracked_images * 255).astype('uint8')
-    info['tfwriter'].add_image('train/Image', tracked_images, engine.state.epoch)
+    # cmap_jet = plt.get_cmap('jet')
+    # imgs = np.concatenate([imgs[0], imgs[1]], axis=0)
+    # true = cmap_jet(np.concatenate([true[0], true[1]], axis=0))[...,:3]
+    # segs = cmap_jet(np.concatenate([segs[0], segs[1]], axis=0))[...,:3]
+    # imgs = cv2.resize(imgs, (0, 0),  fx=1/8 , fy=1/8 , interpolation=cv2.INTER_LINEAR)
+    # tracked_images = np.concatenate([imgs, true, segs], axis=1)
+    # # plt.imshow(tracked_images)
+    # # plt.show()
+    # # exit()
+    # tracked_images = np.expand_dims(tracked_images, axis=0) # fake NCHW
+    # tracked_images = np.transpose(tracked_images, [0, 3, 1, 2])
+    # tracked_images = (tracked_images * 255).astype('uint8')
+    # info['tfwriter'].add_image('train/Image', tracked_images, engine.state.epoch)
 
 ####
 def process_accumulated_output(output, batch_size, nr_classes):

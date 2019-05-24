@@ -11,7 +11,7 @@ class Config(object):
         self.train_batch_size = 8
         self.infer_batch_size = 8
         self.nr_epochs  = 60
-        self.nr_classes = 3
+        self.nr_classes = 4
         
         # nr of processes for parallel processing input
         self.nr_procs_train = 4 
@@ -34,7 +34,7 @@ class Config(object):
         self.log_path = '/media/vqdang/Data_2/dang/output/NUCLEI-ENHANCE/%s/' % self.dataset
         # self.log_path = '/mnt/dang/output/NUCLEI-ENHANCE/%s/' % self.dataset
         self.chkpts_prefix = 'model'
-        self.model_name = 'v1.0.0.1'
+        self.model_name = 'v1.0.0.2'
         self.log_dir =  self.log_path + self.model_name
 
     def train_augmentors(self):

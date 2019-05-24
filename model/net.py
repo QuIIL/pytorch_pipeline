@@ -203,6 +203,7 @@ class DenseNet(Net, Config):
         def GlobalAvgPooling(l):
             return F.adaptive_avg_pool2d(l, (1, 1)).view(l.size(0), -1)
 
+        img_hw = imgs.size()[2:]
         attent = [None] * 4
         
         d0 = self.d0(imgs)
@@ -219,10 +220,12 @@ class DenseNet(Net, Config):
         d4 = self.d4_dense(d4, attent[3])
         
         d2_seg = self.d2_seg(d2)
-        # d3_seg = self.d3_seg(scale_to(d3, (128, 128)))
-        # d4_seg = self.d4_seg(scale_to(d4, (128, 128)))
-        d3_seg = self.d3_seg(scale_to(d3, (640, 640)))
-        d4_seg = self.d4_seg(scale_to(d4, (640, 640)))
+        d3_seg = self.d3_seg(scale_to(d3, (128, 128)))
+        d4_seg = self.d4_seg(scale_to(d4, (128, 128))) # TODO: dynamic this
+        # d3_seg = self.d3_seg(scale_to(d3, (int(img_hw[0] / 8), int(img_hw[1] / 8))))
+        # d4_seg = self.d4_seg(scale_to(d4, (int(img_hw[0] / 8), int(img_hw[1] / 8))))
+        # d3_seg = self.d3_seg(scale_to(d3, (640, 640)))
+        # d4_seg = self.d4_seg(scale_to(d4, (640, 640)))
         out_seg = self.conv_out(d2_seg + d3_seg + d4_seg)
 
         out = self.preact_out(d4)

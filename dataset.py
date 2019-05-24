@@ -14,10 +14,7 @@ from torchvision.utils import make_grid
 
 ####
 class DatasetSerial(data.Dataset):
-    @staticmethod
-    def _isimage(image, ends):
-        return any(image.endswith(end) for end in ends)
-               
+              
     def __init__(self, pair_list, shape_augs=None, input_augs=None, has_aux=False):
         self.has_aux = has_aux
         self.pair_list = pair_list
@@ -33,8 +30,9 @@ class DatasetSerial(data.Dataset):
         img_label = pair[1] # normal is 0
 
         # shape must be deterministic so it can be reused
-        shape_augs = self.shape_augs.to_deterministic()
-        input_img = shape_augs.augment_image(input_img)
+        if self.shape_augs is not None:
+            shape_augs = self.shape_augs.to_deterministic()
+            input_img = shape_augs.augment_image(input_img)
 
         # additional augmentation just for the input
         if self.input_augs is not None:
@@ -44,7 +42,22 @@ class DatasetSerial(data.Dataset):
         
     def __len__(self):
         return len(self.pair_list)
-    
+####
+class DatasetSerialWSI(data.Dataset):
+              
+    def __init__(self, path_list):
+        self.path_list = path_list
+
+    def __getitem__(self, idx):
+
+        input_img = cv2.imread(self.path_list[idx])
+        input_img = cv2.cvtColor(input_img, cv2.COLOR_BGR2RGB)
+
+        return input_img, self.path_list[idx]
+        
+    def __len__(self):
+        return len(self.path_list)
+
 ####
 def prepare_smhtma_data(fold_idx=0):
     assert fold_idx < 5, "Currently only support 5 fold, each fold is 1 TMA"
@@ -125,12 +138,15 @@ def prepare_colon_manual_data(fold_idx=0):
 
     set_1010711 = load_data_info('%s/v1/1010711/*.jpg' % data_root_dir)
     set_1010712 = load_data_info('%s/v1/1010712/*.jpg' % data_root_dir)
+    set_1010713 = load_data_info('%s/v1/1010713/*.jpg' % data_root_dir)
+    set_1010714 = load_data_info('%s/v1/1010714/*.jpg' % data_root_dir)
+    set_1010715 = load_data_info('%s/v1/1010715/*.jpg' % data_root_dir)
     set_1010716 = load_data_info('%s/v1/1010716/*.jpg' % data_root_dir)
     wsi = load_data_info('%s/wsi/*.jpg' % data_root_dir, parse_label=False, label_value=0) # benign exclusively
     random.shuffle(wsi)
 
-    train_set = set_1010711 + set_1010712 + wsi[:225]
-    valid_set = set_1010716 + wsi[225:]
+    train_set = set_1010711 + set_1010712 + set_1010713 + set_1010715 + wsi[:225]
+    valid_set = set_1010714 + set_1010716 + wsi[225:]
     return train_set, valid_set
 ####
 def prepare_prostate_manual_data(fold_idx=0):
