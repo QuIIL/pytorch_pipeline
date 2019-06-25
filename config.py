@@ -28,13 +28,13 @@ class Config(object):
         self.input_size = [512, 512]
 
         #
-        self.dataset = 'prostate_manual'
+        self.dataset = 'colon_manual'
         # v1.0.3.0 test classifying cancer only
         self.logging = True # for debug run only
         self.log_path = '/media/vqdang/Data_2/dang/output/NUCLEI-ENHANCE/%s/' % self.dataset
         # self.log_path = '/mnt/dang/output/NUCLEI-ENHANCE/%s/' % self.dataset
         self.chkpts_prefix = 'model'
-        self.model_name = 'v1.0.0.2'
+        self.model_name = 'v1.0.0.3'
         self.log_dir =  self.log_path + self.model_name
 
     def train_augmentors(self):

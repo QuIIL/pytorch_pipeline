@@ -162,38 +162,38 @@ class DenseNet(Net, Config):
         # self.avg_pool = nn.AvgPool2d(33, stride=1, padding=16)
         self.avg_pool = nn.AvgPool2d(15, stride=1, padding=7)
 
-        self.d2_seg = nn.Sequential(
-            nn.GroupNorm(136 // 4, 136, eps=1e-5),    
-            nn.ReLU(inplace=True),
-            nn.Conv2d(136, 256, 7, stride=1, padding=3, bias=False),
-            nn.GroupNorm(256 // 4, 256, eps=1e-5),    
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, 7, stride=1, padding=3, bias=False)
-        )
+        # self.d2_seg = nn.Sequential(
+        #     nn.GroupNorm(136 // 4, 136, eps=1e-5),    
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(136, 256, 7, stride=1, padding=3, bias=False),
+        #     nn.GroupNorm(256 // 4, 256, eps=1e-5),    
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(256, 256, 7, stride=1, padding=3, bias=False)
+        # )
 
-        self.d3_seg = nn.Sequential(
-            nn.GroupNorm(260 // 4, 260, eps=1e-5),    
-            nn.ReLU(inplace=True),
-            nn.Conv2d(260, 256, 7, stride=1, padding=3, bias=False),
-            nn.GroupNorm(256 // 4, 256, eps=1e-5),    
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, 7, stride=1, padding=3, bias=False)
-        )
+        # self.d3_seg = nn.Sequential(
+        #     nn.GroupNorm(260 // 4, 260, eps=1e-5),    
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(260, 256, 7, stride=1, padding=3, bias=False),
+        #     nn.GroupNorm(256 // 4, 256, eps=1e-5),    
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(256, 256, 7, stride=1, padding=3, bias=False)
+        # )
 
-        self.d4_seg = nn.Sequential(
-            nn.GroupNorm(260 // 4, 260, eps=1e-5),    
-            nn.ReLU(inplace=True),
-            nn.Conv2d(260, 256, 7, stride=1, padding=3, bias=False),
-            nn.GroupNorm(256, 256, eps=1e-5),    
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, 7, stride=1, padding=3, bias=False)
-        )
+        # self.d4_seg = nn.Sequential(
+        #     nn.GroupNorm(260 // 4, 260, eps=1e-5),    
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(260, 256, 7, stride=1, padding=3, bias=False),
+        #     nn.GroupNorm(256, 256, eps=1e-5),    
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(256, 256, 7, stride=1, padding=3, bias=False)
+        # )
 
-        self.conv_out = nn.Sequential(
-            nn.GroupNorm(256 // 4, 256, eps=1e-5),    
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, nr_classes, 1, stride=1, padding=0, bias=True)            
-        )
+        # self.conv_out = nn.Sequential(
+        #     nn.GroupNorm(256 // 4, 256, eps=1e-5),    
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(256, nr_classes, 1, stride=1, padding=0, bias=True)            
+        # )
         self.weights_init()
 
     def forward(self, imgs, attents=None):
@@ -219,16 +219,16 @@ class DenseNet(Net, Config):
         d4 = self.d4_pool(d3)
         d4 = self.d4_dense(d4, attent[3])
         
-        d2_seg = self.d2_seg(d2)
-        d3_seg = self.d3_seg(scale_to(d3, (128, 128)))
-        d4_seg = self.d4_seg(scale_to(d4, (128, 128))) # TODO: dynamic this
-        # d3_seg = self.d3_seg(scale_to(d3, (int(img_hw[0] / 8), int(img_hw[1] / 8))))
-        # d4_seg = self.d4_seg(scale_to(d4, (int(img_hw[0] / 8), int(img_hw[1] / 8))))
-        # d3_seg = self.d3_seg(scale_to(d3, (640, 640)))
-        # d4_seg = self.d4_seg(scale_to(d4, (640, 640)))
-        out_seg = self.conv_out(d2_seg + d3_seg + d4_seg)
+        # d2_seg = self.d2_seg(d2)
+        # d3_seg = self.d3_seg(scale_to(d3, (128, 128)))
+        # d4_seg = self.d4_seg(scale_to(d4, (128, 128))) # TODO: dynamic this
+        # # d3_seg = self.d3_seg(scale_to(d3, (int(img_hw[0] / 8), int(img_hw[1] / 8))))
+        # # d4_seg = self.d4_seg(scale_to(d4, (int(img_hw[0] / 8), int(img_hw[1] / 8))))
+        # # d3_seg = self.d3_seg(scale_to(d3, (640, 640)))
+        # # d4_seg = self.d4_seg(scale_to(d4, (640, 640)))
+        # out_seg = self.conv_out(d2_seg + d3_seg + d4_seg)
 
-        out = self.preact_out(d4)
+        out_seg = out = self.preact_out(d4)
         out = GlobalAvgPooling(out)
         out = out.view(-1, 260, 1, 1)
         out = self.classifier(out)

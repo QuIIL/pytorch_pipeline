@@ -76,7 +76,7 @@ class Trainer(Config):
 
         #
         aux_true = true.view(-1, 1, 1)
-        aux_true = aux_true * torch.ones((128, 128), dtype=torch.int64, 
+        aux_true = aux_true * torch.ones((32, 32), dtype=torch.int64, 
                                         device='cuda', requires_grad=False)
         aux_prob = F.softmax(aux_logit, dim=1)
         aux_prob = aux_prob.permute(0, 2, 3, 1)
