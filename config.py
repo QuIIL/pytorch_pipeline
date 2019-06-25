@@ -8,7 +8,7 @@ class Config(object):
         self.seed    = 5
         self.init_lr = 1.0e-4
         self.lr_steps   = 30  # decrease at every n-th epoch 
-        self.train_batch_size = 8
+        self.train_batch_size = 4
         self.infer_batch_size = 8
         self.nr_epochs  = 60
         self.nr_classes = 4
@@ -30,7 +30,7 @@ class Config(object):
         #
         self.dataset = 'colon_manual'
         # v1.0.3.0 test classifying cancer only
-        self.logging = True # for debug run only
+        self.logging = False # for debug run only
         self.log_path = '/media/vqdang/Data_2/dang/output/NUCLEI-ENHANCE/%s/' % self.dataset
         # self.log_path = '/mnt/dang/output/NUCLEI-ENHANCE/%s/' % self.dataset
         self.chkpts_prefix = 'model'
